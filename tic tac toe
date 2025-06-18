@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Unbeatable Tic Tac Toe AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter&display=swap');
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #2563eb, #60a5fa);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    padding: 16px;
+  }
+
+  .game {
+    background: rgba(255 255 255 / 0.15);
+    backdrop-filter: blur(15px);
+    border-radius: 16px;
+    max-width: 360px;
+    width: 100%;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  h1 {
+    color: white;
+    font-weight: 700;
+    margin: 0;
+    text-align: center;
+    user-select: none;
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 16px;
+    border-radius: 16px;
+    padding: 16px;
+    background: rgba(255 255 255 / 0.1);
+  }
+
+  .cell {
+    background: rgba(255 255 255 / 0.3);
+    border-radius: 12px;
+    font-weight: 900;
+    font-size: 3.5rem;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    aspect-ratio: 1 / 1;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  .cell:hover:not(.disabled) {
+    background: rgba(255 255 255 / 0.6);
+    color: #1e40af;
+  }
+  .cell.disabled {
+    cursor: default;
+    color: rgba(255 255 255 / 0.7);
+  }
+
+  #status {
+    color: white;
+    text-align: center;
+    font-size: 1.25rem;
+    min-height: 1.5rem;
+  }
+
+  button#restart {
+    background: #1e40af;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 28px;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s ease;
+    align-self: center;
+  }
+  button#restart:hover {
+    background: #1e3a8a;
+  }
+
+  @media (max-width: 400px) {
+    .game {
+      max-width: 300px;
+      padding: 16px;
+    }
+    .cell {
+      font-size: 3rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="game" role="main" aria-label="Tic Tac Toe game">
+    <h1>Tic Tac Toe - Play vs Unbeatable AI</h1>
+    <div id="board" role="grid" aria-label="Tic Tac Toe board"></div>
+    <div id="status" role="status" aria-live="polite"></div>
+    <button id="restart" aria-label="Restart game">Restart Game</button>
+  </main>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const restartBtn = document.getElementById('restart');
+
+    let board; // 9 element array representing tic tac toe board
+    const human = 'X';
+    const ai = 'O';
+    let gameActive = true;
+
+    // Initialize game
+    function init() {
+      board = Array(9).fill('');
+      gameActive = true;
+      statusEl.textContent = "Your turn (X)";
+      boardEl.innerHTML = '';
+      for(let i=0; i<9; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.setAttribute('tabindex', '0');
+        cell.setAttribute('role', 'gridcell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', onUserMove);
+        cell.addEventListener('keydown', event => {
+          if(event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onUserMove.call(event.target);
+          }
+        });
+        boardEl.appendChild(cell);
+      }
+    }
+
+    // On user move
+    function onUserMove() {
+      const i = this.dataset.index;
+      if(!gameActive || board[i] !== '') return;
+
+      makeMove(i, human);
+      if (gameActive) {
+        statusEl.textContent = "AI is thinking...";
+        setTimeout(() => {
+          const bestMove = minimax(board, ai, -Infinity, Infinity).index;
+          makeMove(bestMove, ai);
+        }, 300);
+      }
+    }
+
+    // Make a move on board and update UI
+    function makeMove(index, player) {
+      board[index] = player;
+      const cell = boardEl.children[index];
+      cell.textContent = player;
+      cell.classList.add('disabled');
+      cell.style.color = player === human ? '#2563eb' : '#eab308';
+
+      const winner = checkWin(board);
+      if(winner) {
+        gameActive = false;
+        if(winner === human) {
+          statusEl.textContent = "You won! 🎉";
+        } else if(winner === ai) {
+          statusEl.textContent = "AI won! 🤖";
+        } else {
+          statusEl.textContent = "It's a draw!";
+        }
+        disableBoard();
+        return;
+      }
+      statusEl.textContent = (player === human) ? "AI's turn (O)" : "Your turn (X)";
+    }
+
+    // Check board for winner or draw
+    function checkWin(bd) {
+      const winPatterns = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+      ];
+      for(let pattern of winPatterns) {
+        const [a,b,c] = pattern;
+        if(bd[a] && bd[a] === bd[b] && bd[b] === bd[c]) return bd[a];
+      }
+      if(bd.every(cell => cell !== '')) return 'draw';
+      return null;
+    }
+
+    // Disable all cells after game ends
+    function disableBoard() {
+      for(let cell of boardEl.children) {
+        cell.classList.add('disabled');
+      }
+    }
+
+    // Minimax with alpha-beta pruning - AI chooses best move
+    function minimax(newBoard, player, alpha, beta) {
+      const availIndexes = newBoard.map((v,i) => v === '' ? i : null).filter(i => i !== null);
+
+      const winner = checkWin(newBoard);
+      if(winner === human) return {score: -10};
+      else if(winner === ai) return {score: 10};
+      else if (winner === 'draw') return {score: 0};
+
+      let bestIndex = null;
+
+      if(player === ai) {
+        let maxEval = -Infinity;
+        for(let i=0; i < availIndexes.length; i++) {
+          const idx = availIndexes[i];
+          newBoard[idx] = ai;
+          let result = minimax(newBoard, human, alpha, beta);
+          newBoard[idx] = '';
+          if(result.score > maxEval) {
+            maxEval = result.score;
+            bestIndex = idx;
+          }
+          alpha = Math.max(alpha, maxEval);
+          if(beta <= alpha) break;
+        }
+        return {score: maxEval, index: bestIndex};
+      } else {
+        let minEval = Infinity;
+        for(let i=0; i < availIndexes.length; i++) {
+          const idx = availIndexes[i];
+          newBoard[idx] = human;
+          let result = minimax(newBoard, ai, alpha, beta);
+          newBoard[idx] = '';
+          if(result.score < minEval) {
+            minEval = result.score;
+            bestIndex = idx;
+          }
+          beta = Math.min(beta, minEval);
+          if(beta <= alpha) break;
+        }
+        return {score: minEval, index: bestIndex};
+      }
+    }
+
+    restartBtn.addEventListener('click', () => {
+      init();
+    });
+
+    window.addEventListener('load', () => {
+      init();
+    });
+  </script>
+</body>
+</html>
